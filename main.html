@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RLC Lab — where linear algebra meets AC/DC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --page-bg:#eef0f2;
+    --bezel-1:#d9dcdf;
+    --bezel-2:#c5c9cd;
+    --bezel-edge:#ffffff;
+    --panel-text:#1b2024;
+    --panel-text-dim:#5b6169;
+    --divider: rgba(0,0,0,.14);
+    --accent:#9a5900;
+    --accent-strong:#c97600;
+    --wire:#6b7178;
+    --led-off:#5b3a1a;
+    --led-on:#ffb000;
+    --focus:#2266dd;
+    --slider-track:#b9bcc0;
+    --slider-track-2:#a7abb0;
+    --screen-bg:#05080a;
+    --screen-grid: rgba(96,150,118,.24);
+    --screen-grid-strong: rgba(96,150,118,.4);
+    --trace-v:#ffb000;
+    --trace-i:#49d7e6;
+    --screen-text: rgba(210,225,215,.55);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --page-bg:#05070a;
+      --bezel-1:#191e25;
+      --bezel-2:#0d1116;
+      --bezel-edge:#323a44;
+      --panel-text:#e7e9ea;
+      --panel-text-dim:#8a93a0;
+      --divider: rgba(255,255,255,.09);
+      --accent:#ffb000;
+      --accent-strong:#ffcf66;
+      --wire:#8a93a0;
+      --led-off:#3a2a16;
+      --slider-track:#262c34;
+      --slider-track-2:#181d24;
+    }
+  }
+  :root[data-theme="dark"]{
+    --page-bg:#05070a;
+    --bezel-1:#191e25;
+    --bezel-2:#0d1116;
+    --bezel-edge:#323a44;
+    --panel-text:#e7e9ea;
+    --panel-text-dim:#8a93a0;
+    --divider: rgba(255,255,255,.09);
+    --accent:#ffb000;
+    --accent-strong:#ffcf66;
+    --wire:#8a93a0;
+    --led-off:#3a2a16;
+    --slider-track:#262c34;
+    --slider-track-2:#181d24;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--page-bg);
+    color:var(--panel-text);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    padding:28px 16px 60px;
+    display:flex;
+    justify-content:center;
+  }
+  .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; }
+
+  .rig{
+    width:100%;
+    max-width:1080px;
+  }
+
+  .panel{
+    position:relative;
+    background:linear-gradient(160deg, var(--bezel-1), var(--bezel-2));
+    border-radius:16px;
+    box-shadow: 0 24px 48px rgba(0,0,0,.28), inset 0 1px 0 var(--bezel-edge);
+    padding:22px 22px 26px;
+  }
+  .screw{
+    position:absolute;
+    width:9px; height:9px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fff8, #7778 55%, #0006 100%);
+    box-shadow: inset 0 0 2px rgba(0,0,0,.6);
+  }
+  .screw.tl{top:12px; left:12px;} .screw.tr{top:12px; right:12px;}
+  .screw.bl{bottom:12px; left:12px;} .screw.br{bottom:12px; right:12px;}
+
+  header.rig-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    padding-bottom:16px;
+    margin-bottom:18px;
+    border-bottom:1px solid var(--divider);
+  }
+  .title-block h1{
+    font-size:19px;
+    margin:0 0 3px;
+    font-weight:700;
+    letter-spacing:.01em;
+  }
+  .title-block p{
+    margin:0;
+    color:var(--panel-text-dim);
+    font-size:13px;
+  }
+  .status-block{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .led{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--led-on);
+    box-shadow: 0 0 6px 2px color-mix(in srgb, var(--led-on) 70%, transparent), inset 0 0 2px rgba(0,0,0,.4);
+    flex:none;
+  }
+  .led-label{ font-size:11px; color:var(--panel-text-dim); }
+
+  .toggle{
+    display:flex;
+    align-items:center;
+    background:var(--slider-track-2);
+    border-radius:999px;
+    padding:3px;
+    gap:2px;
+    border:1px solid var(--divider);
+  }
+  .toggle input{ position:absolute; opacity:0; pointer-events:none; }
+  .toggle label{
+    position:relative;
+    z-index:1;
+    font-size:11px;
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:.03em;
+    padding:6px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    color:var(--panel-text-dim);
+    transition: color .25s ease;
+    user-select:none;
+  }
+  .toggle .thumb{
+    position:absolute;
+    top:3px; left:3px;
+    height:calc(100% - 6px);
+    width:calc(50% - 3px);
+    background:var(--accent);
+    border-radius:999px;
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+  }
+  #modeSwitch:checked ~ .thumb{ transform: translateX(100%); }
+  .toggle label[data-side="a"]{ color: var(--panel-text); }
+  #modeSwitch:checked ~ label[data-side="a"]{ color: var(--panel-text-dim); }
+  #modeSwitch:checked ~ label[data-side="b"]{ color:#100c00; }
+  #modeSwitch:not(:checked) ~ label[data-side="a"]{ color:#100c00; }
+  #modeSwitch:focus-visible ~ .thumb{ outline:2px solid var(--focus); outline-offset:2px; }
+
+  main.deck{
+    display:grid;
+    grid-template-columns: 250px 1fr;
+    gap:20px;
+  }
+  @media (max-width: 720px){
+    main.deck{ grid-template-columns: 1fr; }
+  }
+
+  .schem-col, .scope-col{ display:flex; flex-direction:column; gap:14px; }
+
+  .card{
+    background: color-mix(in srgb, var(--bezel-2) 70%, transparent);
+    border:1px solid var(--divider);
+    border-radius:10px;
+    padding:12px 14px;
+  }
+  .card h2{
+    font-size:11px;
+    margin:0 0 8px;
+    color:var(--panel-text-dim);
+    font-weight:600;
+    letter-spacing:.04em;
+  }
+
+  svg.schematic{ width:100%; height:auto; display:block; }
+  .schem-wire{ fill:none; stroke:var(--wire); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+  .schem-part{ fill:none; stroke:var(--panel-text); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+  .schem-plate{ stroke:var(--panel-text); stroke-width:3; }
+  .schem-label{ fill:var(--panel-text-dim); font-size:9px; font-family:'IBM Plex Mono', monospace; }
+  .schem-value{ fill:var(--accent); font-size:9.5px; font-family:'IBM Plex Mono', monospace; font-weight:600; }
+
+  .readout-lines{ font-size:12px; line-height:1.65; white-space:pre-wrap; }
+  .readout-lines .k{ color:var(--panel-text-dim); }
+  .readout-lines .v{ color:var(--panel-text); font-weight:600; }
+  .readout-lines .flag{ color:var(--accent-strong); font-weight:600; }
+
+  .scope-screen{
+    position:relative;
+    background:var(--screen-bg);
+    border-radius:8px;
+    padding:10px;
+    box-shadow: inset 0 0 22px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.04);
+  }
+  .scope-screen canvas{ display:block; width:100%; height:230px; }
+  .scope-tag{
+    position:absolute;
+    top:16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    padding:1px 0;
+  }
+  .scope-tag.v{ left:20px; color:var(--trace-v); }
+  .scope-tag.i{ right:20px; color:var(--trace-i); text-align:right; }
+
+  .plane-screen{
+    background:var(--screen-bg);
+    border-radius:8px;
+    padding:10px;
+    box-shadow: inset 0 0 22px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.04);
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+  .plane-screen canvas{ display:block; width:150px; height:150px; flex:none; }
+  .plane-caption{
+    font-size:11.5px;
+    color: var(--screen-text);
+    font-family:'IBM Plex Mono', monospace;
+    line-height:1.6;
+  }
+
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:18px;
+    margin-top:18px;
+    padding-top:16px;
+    border-top:1px solid var(--divider);
+  }
+  .control{ flex:1 1 190px; min-width:170px; }
+  .control-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:6px;
+  }
+  .control-top label{ font-size:12px; color:var(--panel-text-dim); }
+  .control-top output{ font-size:12.5px; font-family:'IBM Plex Mono', monospace; color:var(--panel-text); font-weight:600; }
+
+  input[type="range"]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:100%;
+    height:4px;
+    border-radius:3px;
+    background:linear-gradient(90deg, var(--slider-track), var(--slider-track-2));
+    outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--accent);
+    border:2px solid var(--bezel-edge);
+    box-shadow:0 1px 3px rgba(0,0,0,.4);
+    cursor:pointer;
+    margin-top:0;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--accent);
+    border:2px solid var(--bezel-edge);
+    cursor:pointer;
+  }
+  input[type="range"]:focus-visible::-webkit-slider-thumb{ outline:2px solid var(--focus); outline-offset:2px; }
+
+  #freqControl{ transition: opacity .2s ease; }
+  #freqControl[hidden]{ display:none; }
+
+  .diagnostic{
+    margin-top:16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:var(--accent-strong);
+    background: color-mix(in srgb, var(--screen-bg) 92%, var(--bezel-2));
+    border-radius:8px;
+    padding:10px 14px;
+    border:1px solid var(--divider);
+  }
+
+  .explainer{
+    margin-top:18px;
+    padding-top:16px;
+    border-top:1px solid var(--divider);
+    font-size:13.5px;
+    line-height:1.65;
+    color:var(--panel-text-dim);
+    max-width:74ch;
+  }
+  .explainer strong{ color:var(--panel-text); font-weight:600; }
+
+  footer.credit{
+    text-align:center;
+    font-size:11.5px;
+    color:var(--panel-text-dim);
+    margin-top:14px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .toggle .thumb{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="rig">
+  <div class="panel">
+    <span class="screw tl"></span><span class="screw tr"></span>
+    <span class="screw bl"></span><span class="screw br"></span>
+
+    <header class="rig-header">
+      <div class="title-block">
+        <h1>RLC LAB</h1>
+        <p>one circuit, one matrix, two ways to watch it move</p>
+      </div>
+      <div class="status-block">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="led" aria-hidden="true"></span>
+          <span class="led-label mono">ENERGIZED</span>
+        </div>
+        <div class="toggle">
+          <input type="checkbox" id="modeSwitch" aria-label="Toggle between step response and steady-state AC view">
+          <label data-side="a" id="modeALabel">STEP</label>
+          <label data-side="b" id="modeBLabel">AC&nbsp;SS</label>
+          <span class="thumb" aria-hidden="true"></span>
+        </div>
+      </div>
+    </header>
+
+    <main class="deck">
+      <section class="schem-col">
+        <div class="card">
+          <h2>CIRCUIT</h2>
+          <svg class="schematic" viewBox="0 0 300 200" role="img" aria-label="Series RLC circuit schematic">
+            <!-- top wire + resistor -->
+            <path class="schem-wire" d="M40,40 L90,40 L96,26 L104,54 L112,26 L120,54 L128,26 L136,54 L144,26 L152,40 L260,40"/>
+            <text class="schem-label" x="108" y="18">R</text>
+            <text class="schem-value" id="lblR" x="96" y="70">20 Ω</text>
+
+            <!-- right wire + inductor -->
+            <path class="schem-wire" d="M260,40 L260,58 A9,9 0 0 1 260,76 A9,9 0 0 0 260,94 A9,9 0 0 1 260,112 A9,9 0 0 0 260,130 A9,9 0 0 1 260,142 L260,160"/>
+            <text class="schem-label" x="271" y="103">L</text>
+            <text class="schem-value" id="lblL" x="230" y="185">50 mH</text>
+
+            <!-- bottom wire + capacitor -->
+            <path class="schem-wire" d="M260,160 L172,160"/>
+            <line class="schem-plate" x1="158" y1="148" x2="158" y2="172"/>
+            <line class="schem-plate" x1="148" y1="148" x2="148" y2="172"/>
+            <path class="schem-wire" d="M134,160 L40,160"/>
+            <text class="schem-label" x="140" y="182">C</text>
+            <text class="schem-value" id="lblC" x="20" y="185">20 µF</text>
+
+            <!-- left wire + source, DC variant -->
+            <g id="sourceDC">
+              <path class="schem-wire" d="M40,160 L40,116"/>
+              <line class="schem-part" x1="25" y1="112" x2="55" y2="112"/>
+              <line class="schem-part" x1="33" y1="105" x2="47" y2="105" stroke-width="4.5"/>
+              <line class="schem-part" x1="25" y1="97" x2="55" y2="97"/>
+              <line class="schem-part" x1="33" y1="90" x2="47" y2="90" stroke-width="4.5"/>
+              <path class="schem-wire" d="M40,90 L40,78"/>
+              <circle class="schem-part" cx="40" cy="74" r="2.4" fill="var(--panel-text)"/>
+              <path class="schem-part" d="M40,74 L52,58"/>
+              <circle class="schem-part" cx="40" cy="54" r="2.4" fill="var(--panel-text)"/>
+              <path class="schem-wire" d="M40,54 L40,40"/>
+              <text class="schem-label" x="4" y="103">V₀</text>
+              <text class="schem-label" x="52" y="68">SW</text>
+            </g>
+
+            <!-- left wire + source, AC variant -->
+            <g id="sourceAC" style="display:none">
+              <path class="schem-wire" d="M40,160 L40,118"/>
+              <circle class="schem-part" cx="40" cy="100" r="18"/>
+              <path class="schem-part" d="M28,100 Q34,88 40,100 Q46,112 52,100" stroke-width="2"/>
+              <path class="schem-wire" d="M40,82 L40,40"/>
+              <text class="schem-value" id="lblSource" x="-4" y="132">10 V, 159 Hz</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="card">
+          <h2 id="readoutTitle">STATE (s-DOMAIN)</h2>
+          <div class="readout-lines mono" id="readoutPanel" aria-live="off"></div>
+        </div>
+      </section>
+
+      <section class="scope-col">
+        <div class="card" style="padding:10px;">
+          <div class="scope-screen">
+            <span class="scope-tag v" id="tagV">V_C peak —</span>
+            <span class="scope-tag i" id="tagI">i peak —</span>
+            <canvas id="scopeCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="card" style="padding:10px;">
+          <div class="plane-screen">
+            <canvas id="planeCanvas"></canvas>
+            <div class="plane-caption" id="planeCaption"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="controls">
+      <div class="control">
+        <div class="control-top"><label for="rSlider">Resistance R</label><output id="rVal" class="mono">20 Ω</output></div>
+        <input type="range" id="rSlider" min="1" max="500" value="20" step="1" aria-describedby="rVal">
+      </div>
+      <div class="control">
+        <div class="control-top"><label for="lSlider">Inductance L</label><output id="lVal" class="mono">50 mH</output></div>
+        <input type="range" id="lSlider" min="1" max="200" value="50" step="1" aria-describedby="lVal">
+      </div>
+      <div class="control">
+        <div class="control-top"><label for="cSlider">Capacitance C</label><output id="cVal" class="mono">20 µF</output></div>
+        <input type="range" id="cSlider" min="1" max="100" value="20" step="1" aria-describedby="cVal">
+      </div>
+      <div class="control" id="freqControl" hidden>
+        <div class="control-top"><label for="fSlider">Drive frequency f</label><output id="fVal" class="mono">159 Hz</output></div>
+        <input type="range" id="fSlider" min="0" max="1000" value="500" step="1" aria-describedby="fVal">
+      </div>
+    </div>
+
+    <div class="diagnostic mono" id="diagLine" aria-live="polite">—</div>
+
+    <div class="explainer">
+      <p id="explainText"></p>
+    </div>
+  </div>
+
+  <footer class="credit">Nothing here is precomputed — every trace, eigenvalue and phasor is solved live from the sliders' current R, L and C.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- complex number helpers ----------
+  const C_ = {
+    add:(a,b)=>({re:a.re+b.re, im:a.im+b.im}),
+    sub:(a,b)=>({re:a.re-b.re, im:a.im-b.im}),
+    mul:(a,b)=>({re:a.re*b.re-a.im*b.im, im:a.re*b.im+a.im*b.re}),
+    div:(a,b)=>{ const d=b.re*b.re+b.im*b.im || 1e-30;
+      return {re:(a.re*b.re+a.im*b.im)/d, im:(a.im*b.re-a.re*b.im)/d}; },
+    scale:(a,s)=>({re:a.re*s, im:a.im*s}),
+    exp:(a)=>{ const ex=Math.exp(a.re); return {re:ex*Math.cos(a.im), im:ex*Math.sin(a.im)}; },
+    neg:(a)=>({re:-a.re, im:-a.im}),
+    abs:(a)=>Math.hypot(a.re,a.im),
+    arg:(a)=>Math.atan2(a.im,a.re),
+    re:(n)=>({re:n, im:0})
+  };
+
+  // ---------- state ----------
+  const state = {
+    mode: 'transient',   // 'transient' | 'ac'
+    R: 20, L_mH: 50, C_uF: 20, f_Hz: 159,
+    V0: 10,
+    sweepT: 0,
+    scrollPhase: 0,
+    reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    derived: null
+  };
+
+  const SWEEP_DUR = 2.2, HOLD_DUR = 1.6, CYCLE = SWEEP_DUR + HOLD_DUR;
+  const OMEGA_VIS = 2*Math.PI*0.12; // slow illustrative rotation/scroll rate
+
+  // ---------- DOM refs ----------
+  const el = id => document.getElementById(id);
+  const rSlider=el('rSlider'), lSlider=el('lSlider'), cSlider=el('cSlider'), fSlider=el('fSlider');
+  const rVal=el('rVal'), lVal=el('lVal'), cVal=el('cVal'), fVal=el('fVal');
+  const freqControl = el('freqControl');
+  const modeSwitch = el('modeSwitch');
+  const scopeCanvas = el('scopeCanvas'), planeCanvas = el('planeCanvas');
+  const tagV = el('tagV'), tagI = el('tagI');
+  const readoutPanel = el('readoutPanel'), readoutTitle = el('readoutTitle');
+  const diagLine = el('diagLine'), planeCaption = el('planeCaption'), explainText = el('explainText');
+  const lblR = el('lblR'), lblL = el('lblL'), lblC = el('lblC'), lblSource = el('lblSource');
+  const sourceDC = el('sourceDC'), sourceAC = el('sourceAC');
+
+  let ctxScope, ctxPlane;
+  function fitCanvas(canvas){
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(rect.width*dpr));
+    canvas.height = Math.max(1, Math.round(rect.height*dpr));
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return ctx;
+  }
+  function refitAll(){
+    ctxScope = fitCanvas(scopeCanvas);
+    ctxPlane = fitCanvas(planeCanvas);
+  }
+
+  // ---------- physics: transient (DC step) ----------
+  function computeTransient(R, L, C, V0){
+    const alpha = R/(2*L);
+    const omega0sq = 1/(L*C);
+    const omega0 = Math.sqrt(omega0sq);
+    const disc = alpha*alpha - omega0sq;
+    const eps = 1e-6*omega0sq;
+    let regime, lambda1, lambda2, wd=null;
+
+    if (Math.abs(disc) < eps){
+      regime = 'critical';
+      lambda1 = {re:-alpha, im:0}; lambda2 = {re:-alpha, im:0};
+    } else if (disc > 0){
+      regime = 'over';
+      const s = Math.sqrt(disc);
+      lambda1 = {re:-alpha+s, im:0};
+      lambda2 = {re:-alpha-s, im:0};
+    } else {
+      regime = 'under';
+      wd = Math.sqrt(-disc);
+      lambda1 = {re:-alpha, im:wd};
+      lambda2 = {re:-alpha, im:-wd};
+    }
+
+    // duration to display
+    let Ts;
+    if (regime === 'over'){
+      const slowRate = Math.max(-lambda1.re, 1e-6); // lambda1 closer to 0 => slower mode
+      Ts = 5/slowRate;
+    } else if (regime === 'critical'){
+      Ts = 5/Math.max(alpha,1e-6);
+    } else {
+      const byDecay = 5/Math.max(alpha,1e-6);
+      const period = 2*Math.PI/wd;
+      Ts = Math.min(Math.max(byDecay, 3*period), 15*period);
+    }
+    Ts = Math.min(Math.max(Ts, 0.0006), 4);
+
+    function sample(t){
+      let vc, dvcdt;
+      if (regime === 'critical'){
+        const lam = lambda1.re;
+        const e = Math.exp(lam*t);
+        vc = V0*(1 + (lam*t - 1)*e);
+        dvcdt = V0*lam*lam*t*e;
+      } else {
+        const diff = C_.sub(lambda2, lambda1);
+        const A = C_.scale(C_.div(lambda2, diff), -V0);
+        const B = C_.scale(C_.div(lambda1, diff), V0);
+        const e1 = C_.exp(C_.scale(lambda1, t));
+        const e2 = C_.exp(C_.scale(lambda2, t));
+        const vcC = C_.add(C_.add(C_.re(V0), C_.mul(A,e1)), C_.mul(B,e2));
+        const dC = C_.add(C_.mul(C_.mul(A,lambda1),e1), C_.mul(C_.mul(B,lambda2),e2));
+        vc = vcC.re; dvcdt = dC.re;
+      }
+      const i = C*dvcdt;
+      return {vc, i};
+    }
+
+    const N = 420;
+    const tArr=new Float64Array(N), vcArr=new Float64Array(N), iArr=new Float64Array(N);
+    let vcMax=0.01, iMax=0.0001;
+    for (let k=0;k<N;k++){
+      const t = (k/(N-1))*Ts;
+      const {vc, i} = sample(t);
+      tArr[k]=t; vcArr[k]=vc; iArr[k]=i;
+      if (Math.abs(vc)>vcMax) vcMax=Math.abs(vc);
+      if (Math.abs(i)>iMax) iMax=Math.abs(i);
+    }
+
+    return { alpha, omega0, disc, regime, lambda1, lambda2, wd, Ts, tArr, vcArr, iArr, vcMax, iMax };
+  }
+
