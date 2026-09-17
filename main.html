@@ -587,3 +587,352 @@
     return { alpha, omega0, disc, regime, lambda1, lambda2, wd, Ts, tArr, vcArr, iArr, vcMax, iMax };
   }
 
+  // ---------- physics: AC steady state ----------
+  function computeAC(R, L, C, f, V0){
+    const omega = 2*Math.PI*f;
+    const Zr = {re:R, im:0};
+    const Zl = {re:0, im:omega*L};
+    const Zc = {re:0, im:-1/(omega*C)};
+    const Zt = C_.add(C_.add(Zr,Zl),Zc);
+    const V = {re:V0, im:0};
+    const I = C_.div(V, Zt);
+    const VR = C_.mul(I,Zr), VL = C_.mul(I,Zl), VC = C_.mul(I,Zc);
+    const omega0 = 1/Math.sqrt(L*C);
+    const f0 = omega0/(2*Math.PI);
+    return { omega, f0, Zr, Zl, Zc, Zt, V, I, VR, VL, VC,
+      ZtMag: C_.abs(Zt), ZtPhase: C_.arg(Zt),
+      IMag: C_.abs(I), IPhase: C_.arg(I) };
+  }
+
+  // ---------- unit helpers ----------
+  const fmt = (v,d=2)=>Number(v).toFixed(d);
+  function fmtSI(v, unit, digits=2){
+    const av = Math.abs(v);
+    if (av === 0) return `0 ${unit}`;
+    if (av >= 1000) return `${fmt(v/1000,digits)} k${unit}`;
+    if (av < 1) return `${fmt(v*1000,digits)} m${unit}`;
+    return `${fmt(v,digits)} ${unit}`;
+  }
+
+  // ---------- recompute on slider change ----------
+  function recompute(){
+    const R = state.R, L = state.L_mH/1000, C = state.C_uF/1e6, f = state.f_Hz, V0 = state.V0;
+    const t = computeTransient(R,L,C,V0);
+    const a = computeAC(R,L,C,f,V0);
+    state.derived = { R, L, C, f, V0, t, a };
+    updateSchematicLabels();
+    updateReadouts();
+    updateDiagnostic();
+    updateExplainer();
+  }
+
+  function updateSchematicLabels(){
+    lblR.textContent = `${state.R} Ω`;
+    lblL.textContent = `${state.L_mH} mH`;
+    lblC.textContent = `${state.C_uF} µF`;
+    if (lblSource) lblSource.textContent = `${state.V0} V, ${Math.round(state.f_Hz)} Hz`;
+  }
+
+  function updateReadouts(){
+    const d = state.derived;
+    if (state.mode === 'transient'){
+      readoutTitle.textContent = 'STATE (EIGENVALUES)';
+      const t = d.t;
+      const regimeName = {over:'OVERDAMPED', critical:'CRITICALLY DAMPED', under:'UNDERDAMPED'}[t.regime];
+      const lam1 = t.regime==='under' ? `−${fmt(-t.lambda1.re,0)} + j${fmt(t.wd,0)}` : `${fmt(t.lambda1.re,0)}`;
+      const lam2 = t.regime==='under' ? `−${fmt(-t.lambda1.re,0)} − j${fmt(t.wd,0)}` : `${fmt(t.lambda2.re,0)}`;
+      readoutPanel.innerHTML =
+        `<span class="k">regime</span>  <span class="flag">${regimeName}</span>\n`+
+        `<span class="k">α (decay)</span>  <span class="v">${fmtSI(t.alpha,'/s')}</span>\n`+
+        `<span class="k">ω₀ (natural)</span>  <span class="v">${fmtSI(t.omega0,'rad/s')}</span>  <span class="k">(${fmt(t.omega0/(2*Math.PI),1)} Hz)</span>\n`+
+        `<span class="k">ζ (damping)</span>  <span class="v">${fmt(t.alpha/t.omega0,2)}</span>\n`+
+        `<span class="k">λ₁</span>  <span class="v">${lam1} s⁻¹</span>\n`+
+        `<span class="k">λ₂</span>  <span class="v">${lam2} s⁻¹</span>\n`+
+        `<span class="k">v_C(∞)</span>  <span class="v">${fmt(d.V0,1)} V</span>`;
+    } else {
+      readoutTitle.textContent = 'STATE (IMPEDANCE)';
+      const a = d.a;
+      const phDeg = a.ZtPhase*180/Math.PI;
+      readoutPanel.innerHTML =
+        `<span class="k">f</span>  <span class="v">${fmt(d.f,1)} Hz</span>  <span class="k">(f₀ = ${fmt(a.f0,1)} Hz)</span>\n`+
+        `<span class="k">|Z_R|</span>  <span class="v">${fmt(a.Zr.re,1)} Ω</span>\n`+
+        `<span class="k">|Z_L|</span>  <span class="v">${fmt(C_.abs(a.Zl),1)} Ω</span>\n`+
+        `<span class="k">|Z_C|</span>  <span class="v">${fmt(C_.abs(a.Zc),1)} Ω</span>\n`+
+        `<span class="k">Z_total</span>  <span class="v">${fmt(a.ZtMag,1)} Ω ∠ ${fmt(phDeg,1)}°</span>\n`+
+        `<span class="k">I_peak</span>  <span class="v">${fmtSI(a.IMag,'A')}</span>  <span class="k">∠ ${fmt(a.IPhase*180/Math.PI,1)}°</span>\n`+
+        `<span class="k">V_R / V_L / V_C</span>  <span class="v">${fmt(C_.abs(a.VR),1)} / ${fmt(C_.abs(a.VL),1)} / ${fmt(C_.abs(a.VC),1)} V</span>`;
+    }
+  }
+
+  function updateDiagnostic(){
+    const d = state.derived;
+    if (state.mode === 'transient'){
+      const t = d.t;
+      if (t.regime === 'over'){
+        const tau = 1/Math.max(-t.lambda1.re,1e-6);
+        diagLine.textContent = `REGIME: OVERDAMPED — settles smoothly to ${fmt(d.V0,1)} V with no ringing (τ ≈ ${fmtSI(tau,'s')})`;
+      } else if (t.regime === 'critical'){
+        diagLine.textContent = `REGIME: CRITICALLY DAMPED — fastest settle possible without any overshoot`;
+      } else {
+        diagLine.textContent = `REGIME: UNDERDAMPED — rings at ${fmt(t.wd/(2*Math.PI),1)} Hz before settling, envelope decays as e^(−${fmt(t.alpha,0)}·t)`;
+      }
+    } else {
+      const a = d.a;
+      const phDeg = a.ZtPhase*180/Math.PI;
+      if (Math.abs(phDeg) < 2){
+        diagLine.textContent = `AT RESONANCE (f ≈ f₀) — impedance is purely resistive, current and voltage in phase`;
+      } else if (phDeg > 0){
+        diagLine.textContent = `INDUCTIVE — current lags voltage by ${fmt(phDeg,1)}°`;
+      } else {
+        diagLine.textContent = `CAPACITIVE — current leads voltage by ${fmt(-phDeg,1)}°`;
+      }
+    }
+  }
+
+  function updateExplainer(){
+    explainText.innerHTML = `Both views come from the same 2×2 matrix — Kirchhoff's voltage law written as `+
+      `<strong>dx/dt = Ax</strong>, where x = [current, capacitor voltage]. Flip the switch on and its `+
+      `<strong>eigenvalues</strong> decide whether the circuit rings or settles quietly. Drive it with a steady `+
+      `sine wave instead, and the same R, L, C become a <strong>complex impedance</strong> whose phase decides `+
+      `whether current leads or lags. The frequency where the two views meet — ω₀ = 1/√(LC) — is the resonance `+
+      `where an AC circuit stops fighting itself.`;
+  }
+
+  // ---------- drawing ----------
+  function cssSize(canvas){
+    const r = canvas.getBoundingClientRect();
+    return {w:r.width, h:r.height};
+  }
+
+  function drawGrid(ctx, w, h, divs=8){
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle = getVar('--screen-grid');
+    ctx.lineWidth = 1;
+    for (let i=1;i<divs;i++){
+      const x = (i/divs)*w;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    }
+    const rows = Math.round(divs*h/w) || 6;
+    for (let j=1;j<rows;j++){
+      const y = (j/rows)*h;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+    ctx.strokeStyle = getVar('--screen-grid-strong');
+    ctx.beginPath(); ctx.moveTo(0,h/2); ctx.lineTo(w,h/2); ctx.stroke();
+  }
+
+  let cachedVars = {};
+  function getVar(name){
+    if (!cachedVars[name] || cachedVars.t !== state._themeTick){
+      cachedVars[name] = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+    return cachedVars[name];
+  }
+  function refreshVarCache(){ cachedVars = {}; }
+
+  function drawScopeTransient(){
+    const {w,h} = cssSize(scopeCanvas);
+    drawGrid(ctxScope, w, h);
+    const d = state.derived.t;
+    const cycle = state.reducedMotion ? SWEEP_DUR : (state.sweepT % CYCLE);
+    const progress = Math.min(cycle/SWEEP_DUR, 1);
+    const nShow = Math.max(2, Math.round(progress * d.tArr.length));
+
+    const midY = h/2;
+    const padY = h*0.08;
+    const vScale = (h/2 - padY) / d.vcMax;
+    const iScale = (h/2 - padY) / d.iMax;
+
+    function path(arr, scale, color){
+      ctxScope.beginPath();
+      for (let k=0;k<nShow;k++){
+        const x = (k/(d.tArr.length-1))*w;
+        const y = midY - arr[k]*scale;
+        if (k===0) ctxScope.moveTo(x,y); else ctxScope.lineTo(x,y);
+      }
+      ctxScope.strokeStyle = color;
+      ctxScope.lineWidth = 2;
+      ctxScope.shadowColor = color;
+      ctxScope.shadowBlur = 4;
+      ctxScope.stroke();
+      ctxScope.shadowBlur = 0;
+    }
+    path(d.vcArr, vScale, getVar('--trace-v'));
+    path(d.iArr, iScale, getVar('--trace-i'));
+
+    if (progress < 1){
+      const x = progress * w;
+      ctxScope.strokeStyle = 'rgba(255,255,255,.5)';
+      ctxScope.lineWidth = 1;
+      ctxScope.beginPath(); ctxScope.moveTo(x,0); ctxScope.lineTo(x,h); ctxScope.stroke();
+    }
+
+    tagV.textContent = `V_C peak ${fmt(d.vcMax,1)} V`;
+    tagI.textContent = `i peak ${fmtSI(d.iMax,'A')}`;
+  }
+
+  function drawScopeAC(){
+    const {w,h} = cssSize(scopeCanvas);
+    drawGrid(ctxScope, w, h);
+    const a = state.derived.a;
+    const V0 = state.V0;
+    const cycles = 3;
+    const span = cycles*2*Math.PI;
+    const midY = h/2;
+    const padY = h*0.1;
+    const vScale = (h/2-padY)/Math.max(V0,1e-6);
+    const iScale = (h/2-padY)/Math.max(a.IMag,1e-9);
+
+    function drawWave(phase0, ampFn, scale, color){
+      ctxScope.beginPath();
+      const steps = 260;
+      for (let k=0;k<=steps;k++){
+        const x = (k/steps)*w;
+        const theta = state.scrollPhase + (k/steps)*span;
+        const y = midY - ampFn(theta)*scale;
+        if (k===0) ctxScope.moveTo(x,y); else ctxScope.lineTo(x,y);
+      }
+      ctxScope.strokeStyle = color; ctxScope.lineWidth = 2;
+      ctxScope.shadowColor = color; ctxScope.shadowBlur = 4;
+      ctxScope.stroke(); ctxScope.shadowBlur = 0;
+    }
+    drawWave(0, th=>V0*Math.cos(th), vScale, getVar('--trace-v'));
+    drawWave(a.IPhase, th=>a.IMag*Math.cos(th+a.IPhase), iScale, getVar('--trace-i'));
+
+    tagV.textContent = `V peak ${fmt(V0,1)} V`;
+    tagI.textContent = `i peak ${fmtSI(a.IMag,'A')}`;
+  }
+
+  function drawPlaneEigen(){
+    const {w,h} = cssSize(planeCanvas);
+    ctxPlane.clearRect(0,0,w,h);
+    const d = state.derived.t;
+    const cx=w/2, cy=h/2;
+    const scale = (w*0.42) / Math.max(Math.abs(d.lambda1.re), Math.abs(d.wd||1), state.derived.t.omega0*0.001, 1);
+
+    ctxPlane.strokeStyle = getVar('--screen-grid-strong');
+    ctxPlane.lineWidth = 1;
+    ctxPlane.beginPath(); ctxPlane.moveTo(0,cy); ctxPlane.lineTo(w,cy); ctxPlane.stroke();
+    ctxPlane.beginPath(); ctxPlane.moveTo(cx,0); ctxPlane.lineTo(cx,h); ctxPlane.stroke();
+
+    function dot(pt, color){
+      const x = cx + pt.re*scale;
+      const y = cy - pt.im*scale;
+      ctxPlane.beginPath(); ctxPlane.arc(x,y,4,0,Math.PI*2);
+      ctxPlane.fillStyle = color; ctxPlane.fill();
+    }
+    dot(d.lambda1, getVar('--trace-v'));
+    dot(d.lambda2, getVar('--trace-i'));
+
+    ctxPlane.fillStyle = getVar('--screen-text');
+    ctxPlane.font = '9px IBM Plex Mono, monospace';
+    ctxPlane.fillText('Re', w-16, cy-6);
+    ctxPlane.fillText('jIm', cx+6, 10);
+
+    planeCaption.textContent = d.regime === 'under'
+      ? `λ pair off the real axis → the imaginary part (±j${fmt(d.wd,0)}) is the ringing frequency; the real part (−${fmt(-d.lambda1.re,0)}) is how fast it dies out.`
+      : `λ on the real axis only → pure exponential settling, no ringing frequency to speak of.`;
+  }
+
+  function drawPlanePhasor(){
+    const {w,h} = cssSize(planeCanvas);
+    ctxPlane.clearRect(0,0,w,h);
+    const a = state.derived.a;
+    const cx=w/2, cy=h/2;
+    const R = w*0.4;
+    const maxMag = Math.max(state.V0, a.IMag*state.V0/Math.max(a.IMag,1e-9)); // normalize separately below
+
+    ctxPlane.strokeStyle = getVar('--screen-grid-strong');
+    ctxPlane.beginPath(); ctxPlane.arc(cx,cy,R,0,Math.PI*2); ctxPlane.stroke();
+    ctxPlane.beginPath(); ctxPlane.moveTo(0,cy); ctxPlane.lineTo(w,cy); ctxPlane.stroke();
+    ctxPlane.beginPath(); ctxPlane.moveTo(cx,0); ctxPlane.lineTo(cx,h); ctxPlane.stroke();
+
+    function arrow(angle, mag, maxMagLocal, color){
+      const len = R * 0.85 * (mag/maxMagLocal);
+      const x = cx + len*Math.cos(angle);
+      const y = cy - len*Math.sin(angle);
+      ctxPlane.beginPath(); ctxPlane.moveTo(cx,cy); ctxPlane.lineTo(x,y);
+      ctxPlane.strokeStyle = color; ctxPlane.lineWidth = 2.4;
+      ctxPlane.shadowColor = color; ctxPlane.shadowBlur = 5;
+      ctxPlane.stroke(); ctxPlane.shadowBlur = 0;
+      const ah = 6, aa = Math.atan2(-Math.sin(angle),Math.cos(angle));
+      ctxPlane.beginPath();
+      ctxPlane.moveTo(x,y);
+      ctxPlane.lineTo(x - ah*Math.cos(angle-0.4), y + ah*Math.sin(angle-0.4));
+      ctxPlane.lineTo(x - ah*Math.cos(angle+0.4), y + ah*Math.sin(angle+0.4));
+      ctxPlane.closePath(); ctxPlane.fillStyle = color; ctxPlane.fill();
+    }
+    const angV = state.scrollPhase;
+    const angI = state.scrollPhase + a.IPhase;
+    arrow(angV, state.V0, state.V0, getVar('--trace-v'));
+    arrow(angI, a.IMag, a.IMag, getVar('--trace-i'));
+
+    const phDeg = a.ZtPhase*180/Math.PI;
+    planeCaption.textContent = Math.abs(phDeg) < 2
+      ? `V and I spin together — the circuit looks purely resistive at this frequency.`
+      : `The angle between the arrows (${fmt(Math.abs(phDeg),1)}°) is arg(Z) — the same phase you'd read off a lab oscilloscope.`;
+  }
+
+  // ---------- animation loop ----------
+  let lastTime = performance.now();
+  function frame(now){
+    const dt = Math.min((now-lastTime)/1000, 0.05);
+    lastTime = now;
+    if (!state.reducedMotion){
+      state.sweepT += dt;
+      state.scrollPhase += dt*OMEGA_VIS;
+    }
+    if (state.mode === 'transient'){
+      drawScopeTransient();
+      drawPlaneEigen();
+    } else {
+      drawScopeAC();
+      drawPlanePhasor();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- UI wiring ----------
+  function setMode(mode){
+    state.mode = mode;
+    state.sweepT = 0;
+    freqControl.hidden = (mode !== 'ac');
+    sourceDC.style.display = (mode === 'transient') ? '' : 'none';
+    sourceAC.style.display = (mode === 'ac') ? '' : 'none';
+    updateReadouts(); updateDiagnostic();
+  }
+
+  modeSwitch.addEventListener('change', ()=> setMode(modeSwitch.checked ? 'ac' : 'transient'));
+  el('modeALabel').addEventListener('click', ()=>{ modeSwitch.checked=false; setMode('transient'); });
+  el('modeBLabel').addEventListener('click', ()=>{ modeSwitch.checked=true; setMode('ac'); });
+
+  rSlider.addEventListener('input', ()=>{ state.R=+rSlider.value; rVal.textContent=`${state.R} Ω`; state.sweepT=0; recompute(); });
+  lSlider.addEventListener('input', ()=>{ state.L_mH=+lSlider.value; lVal.textContent=`${state.L_mH} mH`; state.sweepT=0; recompute(); });
+  cSlider.addEventListener('input', ()=>{ state.C_uF=+cSlider.value; cVal.textContent=`${state.C_uF} µF`; state.sweepT=0; recompute(); });
+  fSlider.addEventListener('input', ()=>{
+    const v = +fSlider.value/1000;
+    state.f_Hz = 1 * Math.pow(2000/1, v);
+    fVal.textContent = `${fmt(state.f_Hz,0)} Hz`;
+    recompute();
+  });
+
+  // set initial frequency slider position to match default f_Hz (~159 Hz)
+  (function initFreqSlider(){
+    const target = state.f_Hz;
+    const v = Math.log(target/1) / Math.log(2000/1) * 1000;
+    fSlider.value = Math.round(v);
+    fVal.textContent = `${fmt(state.f_Hz,0)} Hz`;
+  })();
+
+  window.addEventListener('resize', ()=>{ refitAll(); });
+
+  // ---------- boot ----------
+  refitAll();
+  recompute();
+  setMode('transient');
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
+  
