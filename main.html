@@ -7,9 +7,6 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c97600' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='6' height='6' rx='1'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M18.5 18.5L16 16M5 19l2.5-2.5M18.5 5.5L16 8'/%3E%3Ccircle cx='4' cy='4' r='1.4' fill='%23c97600' stroke='none'/%3E%3Ccircle cx='20' cy='4' r='1.4' fill='%23c97600' stroke='none'/%3E%3Ccircle cx='4' cy='20' r='1.4' fill='%23c97600' stroke='none'/%3E%3Ccircle cx='20' cy='20' r='1.4' fill='%23c97600' stroke='none'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
   :root{
     --page-bg:#eef0f2;
@@ -805,21 +802,21 @@
   </div>
 </div>
 
-<button type="button" id="tutorFab" class="tutor-fab" aria-haspopup="dialog" aria-controls="tutorDrawer" aria-expanded="false" aria-label="Ask AI Circuit Tutor">
+<button type="button" id="tutorFab" class="tutor-fab" aria-haspopup="dialog" aria-controls="tutorDrawer" aria-expanded="false" aria-label="Ask Jarvis">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z"></path>
     <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"></path>
     <path d="M5 14l.6 1.6L7 16l-1.4.6L5 18l-.6-1.4L3 16l1.4-.4L5 14z"></path>
   </svg>
-  <span>Ask AI Tutor</span>
+  <span>Ask Jarvis</span>
 </button>
 
 <div class="tutor-backdrop" id="tutorBackdrop" hidden></div>
 
 <aside class="tutor-drawer" id="tutorDrawer" role="dialog" aria-modal="true" aria-labelledby="tutorTitle" aria-hidden="true">
   <header class="tutor-head">
-    <h2 id="tutorTitle">AI CIRCUIT TUTOR</h2>
-    <button type="button" class="tutor-close" id="tutorClose" aria-label="Close tutor">✕</button>
+    <h2 id="tutorTitle">JARVIS</h2>
+    <button type="button" class="tutor-close" id="tutorClose" aria-label="Close Jarvis">✕</button>
   </header>
 
   <div class="tutor-chips" id="tutorChips">
@@ -831,7 +828,7 @@
   <div class="tutor-messages" id="tutorMessages" aria-live="polite"></div>
 
   <form class="tutor-input-row" id="tutorForm">
-    <input type="text" id="tutorInput" placeholder="Ask about this circuit…" autocomplete="off">
+    <input type="text" id="tutorInput" placeholder="Ask Jarvis about this circuit…" autocomplete="off">
     <button type="submit" id="tutorSend" aria-label="Send">➤</button>
   </form>
 </aside>
@@ -1616,16 +1613,70 @@
   function escapeHtml(s){
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+
+  // Turns the LaTeX-ish math the model writes (\frac{}{}, \sqrt{}, ^{}, _{},
+  // \Omega, \times, \[ \] / \( \) / $ $ delimiters, ...) into real symbols and
+  // <sup>/<sub> text — same Unicode-first style as the rest of the app (Ω, µ,
+  // ω₀, λ₁), with no external renderer or CDN dependency to break.
+  const LATEX_SYMBOLS = {
+    '\\times':'×', '\\cdot':'·', '\\div':'÷', '\\pm':'±', '\\mp':'∓',
+    '\\leq':'≤', '\\le':'≤', '\\geq':'≥', '\\ge':'≥', '\\neq':'≠', '\\ne':'≠',
+    '\\approx':'≈', '\\sim':'∼', '\\propto':'∝', '\\infty':'∞',
+    '\\Omega':'Ω', '\\omega':'ω', '\\mu':'µ', '\\pi':'π', '\\Pi':'Π',
+    '\\alpha':'α', '\\beta':'β', '\\gamma':'γ', '\\Gamma':'Γ',
+    '\\delta':'δ', '\\Delta':'Δ', '\\zeta':'ζ', '\\eta':'η',
+    '\\theta':'θ', '\\lambda':'λ', '\\Lambda':'Λ', '\\phi':'φ', '\\Phi':'Φ',
+    '\\rho':'ρ', '\\sigma':'σ', '\\Sigma':'Σ', '\\tau':'τ', '\\psi':'ψ',
+    '\\partial':'∂', '\\nabla':'∇', '\\rightarrow':'→', '\\to':'→',
+    '\\Rightarrow':'⇒', '\\ldots':'…', '\\dots':'…', '\\cdots':'⋯',
+    '\\quad':' ', '\\qquad':'  '
+  };
+  function convertLatexLite(s){
+    // punctuation-escape spacing commands aren't [a-zA-Z]+, handle first
+    s = s.replace(/\\[,;!]/g, ' ');
+    s = s.replace(/\\left\b|\\right\b/g, '');
+
+    // symbol commands (\mu, \times, ...) must convert *before* \text{}/\frac{}
+    // extraction below splices their braces away — otherwise something like
+    // \mu\text{F} loses its boundary and becomes one unmatched "\muF" token
+    // that silently vanishes instead of becoming "µF".
+    s = s.replace(/\\(?!frac\b|sqrt\b|text\b|mathrm\b|operatorname\b)[a-zA-Z]+/g,
+      m => (m in LATEX_SYMBOLS ? LATEX_SYMBOLS[m] : ''));
+
+    s = s.replace(/\\text\{([^{}]*)\}/g, '$1');
+    s = s.replace(/\\mathrm\{([^{}]*)\}/g, '$1');
+    s = s.replace(/\\operatorname\{([^{}]*)\}/g, '$1');
+
+    // resolve from the inside out: each pass strips whichever braces are
+    // no longer nested, so \sqrt{\frac{L}{C}} clears in two iterations
+    for (let i=0; i<6; i++){
+      const before = s;
+      s = s.replace(/\^\{([^{}]*)\}/g, '<sup>$1</sup>');
+      s = s.replace(/_\{([^{}]*)\}/g, '<sub>$1</sub>');
+      s = s.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)');
+      s = s.replace(/\\sqrt\{([^{}]*)\}/g, '√($1)');
+      if (s === before) break;
+    }
+    s = s.replace(/\^(\S)/g, '<sup>$1</sup>');
+    s = s.replace(/_(\S)/g, '<sub>$1</sub>');
+
+    s = s.replace(/\\\{/g, '{').replace(/\\\}/g, '}');
+    s = s.replace(/\\\[|\\\]|\\\(|\\\)/g, '');
+    s = s.replace(/\$\$?/g, '');
+    s = s.replace(/[ \t]{2,}/g, ' ');
+    return s;
+  }
+
   function renderMarkdownLite(raw){
     let s = escapeHtml(raw);
     s = s.replace(/```circuit-set[\s\S]*?```/g, '');
+    s = convertLatexLite(s);
     s = s.replace(/```([\s\S]*?)```/g, (_,code)=>`<pre><code>${code}</code></pre>`);
     s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/(^|\W)_([^_]+)_(?=\W|$)/g, '$1<em>$2</em>');
-    s = s.replace(/(^|\n)-\s+(.+)/g, '$1<li>$2</li>');
+    s = s.replace(/(^|\n)[-*]\s+(.+)/g, '$1<li>$2</li>');
     s = s.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
-    s = s.split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+    s = s.split(/\n{2,}/).map(p=>p.trim()).filter(Boolean).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
     return s;
   }
   function displayText(rawAccumulated){
@@ -1633,19 +1684,6 @@
     const markerIdx = s.indexOf(ACTION_MARKER_START);
     if (markerIdx !== -1) s = s.slice(0, markerIdx);
     return s.replace(/```circuit-set[\s\S]*?```/g, '').trim();
-  }
-  function renderMathIn(elm){
-    if (window.renderMathInElement){
-      try {
-        window.renderMathInElement(elm, {
-          delimiters: [
-            {left:'$$', right:'$$', display:true},
-            {left:'$', right:'$', display:false}
-          ],
-          throwOnError:false
-        });
-      } catch(e){ /* malformed math in a partial/streamed reply — leave as text */ }
-    }
   }
 
   function addMessageBubble(role){
@@ -1738,7 +1776,6 @@
         assistantBubble.innerHTML = renderMarkdownLite(displayText(raw)) || '<span class="tutor-typing">thinking…</span>';
         tutorMessages.scrollTop = tutorMessages.scrollHeight;
       }
-      renderMathIn(assistantBubble);
 
       if (!blocked){
         tutorHistory.push({role:'user', content:text});
@@ -1751,7 +1788,7 @@
       }
     } catch(err){
       assistantBubble.innerHTML = renderMarkdownLite(
-        'Sorry — I could not reach the tutor backend. Is it running? See tutor-backend/README.md.'
+        "Sorry — I couldn't reach Jarvis' backend. Is it running? See tutor-backend/README.md."
       );
     }
   }

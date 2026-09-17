@@ -1,6 +1,6 @@
-# AI Circuit Tutor — backend
+# Jarvis — AI circuit tutor backend
 
-A small Flask service that powers the "Ask AI Tutor" drawer in `main.html`.
+A small Flask service that powers the "Ask Jarvis" drawer in `main.html`.
 It's built the same way as duckpath's AdvisorPath (`agents.py`'s lazy Groq
 client, same model id, and a `circuit_breaker.py` with the same two-layer
 shape), just re-armed for RLC circuits instead of academic advising.
