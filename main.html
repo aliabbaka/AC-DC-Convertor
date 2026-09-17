@@ -7,6 +7,9 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c97600' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='6' height='6' rx='1'/%3E%3Cpath d='M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M18.5 18.5L16 16M5 19l2.5-2.5M18.5 5.5L16 8'/%3E%3Ccircle cx='4' cy='4' r='1.4' fill='%23c97600' stroke='none'/%3E%3Ccircle cx='20' cy='4' r='1.4' fill='%23c97600' stroke='none'/%3E%3Ccircle cx='4' cy='20' r='1.4' fill='%23c97600' stroke='none'/%3E%3Ccircle cx='20' cy='20' r='1.4' fill='%23c97600' stroke='none'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
   :root{
     --page-bg:#eef0f2;
@@ -466,6 +469,139 @@
   @media (prefers-reduced-motion: reduce){
     .mode-wipe.sweeping{ animation:none; }
   }
+
+  /* ---------- AI Circuit Tutor ---------- */
+  .tutor-fab{
+    position:fixed;
+    right:22px; bottom:22px;
+    z-index:40;
+    display:flex; align-items:center; gap:8px;
+    padding:11px 18px 11px 14px;
+    border-radius:999px;
+    border:1px solid var(--divider);
+    background:linear-gradient(160deg, var(--bezel-1), var(--bezel-2));
+    color:var(--panel-text);
+    font:600 13px 'IBM Plex Sans', sans-serif;
+    box-shadow:0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 var(--bezel-edge);
+    cursor:pointer;
+  }
+  .tutor-fab svg{ width:18px; height:18px; color:var(--accent-strong); flex:none; }
+  .tutor-fab:hover{ filter:brightness(1.08); }
+  .tutor-fab:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+  .tutor-fab[hidden]{ display:none; }
+
+  .tutor-backdrop{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,.35);
+    z-index:38;
+  }
+  .tutor-backdrop[hidden]{ display:none; }
+
+  .tutor-drawer{
+    position:fixed;
+    top:0; right:0; bottom:0;
+    width:min(380px, 92vw);
+    background:linear-gradient(180deg, var(--bezel-1), var(--bezel-2));
+    border-left:1px solid var(--divider);
+    box-shadow:-18px 0 40px rgba(0,0,0,.4);
+    z-index:39;
+    display:flex; flex-direction:column;
+    transform:translateX(100%);
+    transition:transform .28s cubic-bezier(.4,0,.2,1);
+  }
+  .tutor-drawer.open{ transform:translateX(0); }
+
+  .tutor-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 16px 12px;
+    border-bottom:1px solid var(--divider);
+  }
+  .tutor-head h2{ margin:0; font-size:13px; letter-spacing:.04em; color:var(--panel-text); }
+  .tutor-close{
+    background:none; border:none; color:var(--panel-text-dim);
+    font-size:16px; cursor:pointer; padding:2px 6px; border-radius:4px;
+  }
+  .tutor-close:hover{ background:color-mix(in srgb, var(--panel-text) 8%, transparent); }
+
+  .tutor-chips{
+    display:flex; flex-wrap:wrap; gap:6px;
+    padding:12px 16px;
+    border-bottom:1px solid var(--divider);
+  }
+  .tutor-chip{
+    font-size:11px;
+    padding:6px 10px;
+    border-radius:999px;
+    border:1px solid var(--divider);
+    background:color-mix(in srgb, var(--bezel-2) 70%, transparent);
+    color:var(--panel-text-dim);
+    cursor:pointer;
+  }
+  .tutor-chip:hover{ color:var(--panel-text); border-color:var(--accent-strong); }
+
+  .tutor-messages{
+    flex:1; overflow-y:auto;
+    padding:14px 16px;
+    display:flex; flex-direction:column; gap:10px;
+    font-size:12.5px; line-height:1.55;
+  }
+  .tutor-msg{ max-width:88%; padding:8px 11px; border-radius:10px; }
+  .tutor-msg.user{ align-self:flex-end; background:var(--accent); color:#100c00; }
+  .tutor-msg.assistant{
+    align-self:flex-start;
+    background:color-mix(in srgb, var(--screen-bg) 88%, var(--bezel-2));
+    color:var(--panel-text);
+    border:1px solid var(--divider);
+  }
+  .tutor-msg p{ margin:0 0 8px; }
+  .tutor-msg p:last-child{ margin-bottom:0; }
+  .tutor-msg code{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; background:rgba(0,0,0,.25); padding:1px 4px; border-radius:3px; }
+  .tutor-msg pre{ background:rgba(0,0,0,.3); padding:8px; border-radius:6px; overflow-x:auto; }
+  .tutor-msg pre code{ background:none; padding:0; }
+  .tutor-msg ul{ margin:0 0 8px; padding-left:18px; }
+  .tutor-typing{ color:var(--panel-text-dim); font-style:italic; }
+
+  .tutor-demo-chip{
+    margin-top:8px;
+    padding:6px 9px;
+    border-radius:6px;
+    background:color-mix(in srgb, var(--accent) 18%, transparent);
+    border:1px solid var(--accent);
+    font-size:11px;
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .tutor-demo-chip button{
+    font-size:11px;
+    background:none; border:1px solid var(--divider); border-radius:999px;
+    padding:3px 8px; color:var(--panel-text); cursor:pointer;
+  }
+
+  .tutor-input-row{
+    display:flex; gap:8px;
+    padding:12px 16px;
+    border-top:1px solid var(--divider);
+  }
+  .tutor-input-row input{
+    flex:1;
+    font-size:12.5px;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid var(--divider);
+    background:color-mix(in srgb, var(--bezel-2) 60%, transparent);
+    color:var(--panel-text);
+  }
+  .tutor-input-row button{
+    width:36px; height:36px; flex:none;
+    border-radius:8px; border:none;
+    background:var(--accent); color:#100c00;
+    font-size:14px; cursor:pointer;
+  }
+  .tutor-input-row button:hover{ filter:brightness(1.1); }
+
+  @media (max-width:520px){
+    .tutor-fab span{ display:none; }
+    .tutor-fab{ padding:12px; }
+  }
 </style>
 </head>
 <body>
@@ -669,6 +805,36 @@
   </div>
 </div>
 
+<button type="button" id="tutorFab" class="tutor-fab" aria-haspopup="dialog" aria-controls="tutorDrawer" aria-expanded="false" aria-label="Ask AI Circuit Tutor">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z"></path>
+    <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"></path>
+    <path d="M5 14l.6 1.6L7 16l-1.4.6L5 18l-.6-1.4L3 16l1.4-.4L5 14z"></path>
+  </svg>
+  <span>Ask AI Tutor</span>
+</button>
+
+<div class="tutor-backdrop" id="tutorBackdrop" hidden></div>
+
+<aside class="tutor-drawer" id="tutorDrawer" role="dialog" aria-modal="true" aria-labelledby="tutorTitle" aria-hidden="true">
+  <header class="tutor-head">
+    <h2 id="tutorTitle">AI CIRCUIT TUTOR</h2>
+    <button type="button" class="tutor-close" id="tutorClose" aria-label="Close tutor">✕</button>
+  </header>
+
+  <div class="tutor-chips" id="tutorChips">
+    <button type="button" class="tutor-chip">Explain current regime</button>
+    <button type="button" class="tutor-chip">Why are my eigenvalues complex?</button>
+    <button type="button" class="tutor-chip">How do I reach critical damping?</button>
+  </div>
+
+  <div class="tutor-messages" id="tutorMessages" aria-live="polite"></div>
+
+  <form class="tutor-input-row" id="tutorForm">
+    <input type="text" id="tutorInput" placeholder="Ask about this circuit…" autocomplete="off">
+    <button type="submit" id="tutorSend" aria-label="Send">➤</button>
+  </form>
+</aside>
 
 <script>
 (function(){
@@ -897,12 +1063,20 @@
     matrixNote.textContent = `Q (quality factor) = √(L/C)/R = ${fmt(Q,2)} — the same matrix whose eigenvalues (λ₁, λ₂) are shown above.`;
   }
 
+  const REGIME_NAMES = {over:'OVERDAMPED', critical:'CRITICALLY DAMPED', under:'UNDERDAMPED'};
+
+  function formatEigenvalues(t){
+    return t.regime === 'under'
+      ? [`${fmt(t.lambda1.re,0)} + j${fmt(t.wd,0)} s⁻¹`, `${fmt(t.lambda1.re,0)} − j${fmt(t.wd,0)} s⁻¹`]
+      : [`${fmt(t.lambda1.re,0)} s⁻¹`, `${fmt(t.lambda2.re,0)} s⁻¹`];
+  }
+
   function updateReadouts(){
     const d = state.derived;
     if (state.mode === 'transient'){
       readoutTitle.textContent = 'STATE (EIGENVALUES)';
       const t = d.t;
-      const regimeName = {over:'OVERDAMPED', critical:'CRITICALLY DAMPED', under:'UNDERDAMPED'}[t.regime];
+      const regimeName = REGIME_NAMES[t.regime];
       const lam1 = t.regime==='under' ? `−${fmt(-t.lambda1.re,0)} + j${fmt(t.wd,0)}` : `${fmt(t.lambda1.re,0)}`;
       const lam2 = t.regime==='under' ? `−${fmt(-t.lambda1.re,0)} − j${fmt(t.wd,0)}` : `${fmt(t.lambda2.re,0)}`;
       const Q = Math.sqrt(d.L/d.C)/d.R;
@@ -1344,6 +1518,8 @@
 
   // sliders and their paired number inputs share one log-scaled value per
   // control; either one can drive it, and both stay in sync afterward.
+  // controlApply[key] is also reused by the AI tutor to animate a live demo.
+  const controlApply = {};
   function wireLogControl(key, sliderEl, numEl, onSet){
     function apply(value, moveSlider){
       value = Math.min(Math.max(value, RANGE[key].min), RANGE[key].max);
@@ -1353,6 +1529,7 @@
       state.sweepT = 0;
       recompute();
     }
+    controlApply[key] = apply;
     sliderEl.addEventListener('input', ()=> apply(sliderToValue(+sliderEl.value, key), false));
     numEl.addEventListener('input', ()=>{
       const raw = parseFloat(numEl.value);
@@ -1378,6 +1555,217 @@
   initControl('f', fSlider, fNum, state.f_Hz);
 
   window.addEventListener('resize', ()=>{ refitAll(); });
+
+  // ---------- AI Circuit Tutor ----------
+  const TUTOR_ENDPOINT = 'http://localhost:5001/api/tutor/chat';
+  const ACTION_MARKER_START = '<<CIRCUIT_ACTION>>', ACTION_MARKER_END = '<<END>>';
+
+  const tutorFab = el('tutorFab'), tutorDrawer = el('tutorDrawer'), tutorBackdrop = el('tutorBackdrop'),
+        tutorClose = el('tutorClose'), tutorMessages = el('tutorMessages'), tutorForm = el('tutorForm'),
+        tutorInput = el('tutorInput'), tutorChips = el('tutorChips');
+
+  let tutorHistory = [];
+  let tutorDemoSnapshot = null;
+
+  function getCircuitStateJSON(){
+    const d = state.derived;
+    const modeLabel = !state.powered ? 'DE-ENERGIZED' : (state.mode === 'ac' ? 'AC' : 'DC');
+    const parameters = { R_ohms: state.R, L_mH: state.L_mH, C_uF: state.C_uF };
+    if (state.mode === 'ac') parameters.f_Hz = state.f_Hz;
+    const out = { mode: modeLabel, parameters };
+    if (d){
+      const Q = Math.sqrt(d.L/d.C)/d.R;
+      out.quality_factor_Q = Number(Q.toFixed(2));
+      out.regime = REGIME_NAMES[d.t.regime];
+      out.eigenvalues = formatEigenvalues(d.t);
+      out.matrix_A = [
+        [fmtNum(-d.R/d.L), fmtNum(-1/d.L)],
+        [fmtNum(1/d.C), "0"]
+      ];
+      if (state.mode === 'ac'){
+        out.impedance_ohms = Number(d.a.ZtMag.toFixed(2));
+        out.phase_deg = Number((d.a.ZtPhase*180/Math.PI).toFixed(1));
+        out.resonant_f_Hz = Number(d.a.f0.toFixed(1));
+      }
+    }
+    return out;
+  }
+
+  function openTutor(){
+    tutorDrawer.classList.add('open');
+    tutorDrawer.setAttribute('aria-hidden','false');
+    tutorBackdrop.hidden = false;
+    tutorFab.setAttribute('aria-expanded','true');
+    tutorFab.hidden = true;
+    tutorInput.focus();
+  }
+  function closeTutor(){
+    tutorDrawer.classList.remove('open');
+    tutorDrawer.setAttribute('aria-hidden','true');
+    tutorBackdrop.hidden = true;
+    tutorFab.setAttribute('aria-expanded','false');
+    tutorFab.hidden = false;
+  }
+  tutorFab.addEventListener('click', openTutor);
+  tutorClose.addEventListener('click', closeTutor);
+  tutorBackdrop.addEventListener('click', closeTutor);
+  document.addEventListener('keydown', e=>{
+    if (e.key === 'Escape' && tutorDrawer.classList.contains('open')) closeTutor();
+  });
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function renderMarkdownLite(raw){
+    let s = escapeHtml(raw);
+    s = s.replace(/```circuit-set[\s\S]*?```/g, '');
+    s = s.replace(/```([\s\S]*?)```/g, (_,code)=>`<pre><code>${code}</code></pre>`);
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|\W)_([^_]+)_(?=\W|$)/g, '$1<em>$2</em>');
+    s = s.replace(/(^|\n)-\s+(.+)/g, '$1<li>$2</li>');
+    s = s.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+    s = s.split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+    return s;
+  }
+  function displayText(rawAccumulated){
+    let s = rawAccumulated;
+    const markerIdx = s.indexOf(ACTION_MARKER_START);
+    if (markerIdx !== -1) s = s.slice(0, markerIdx);
+    return s.replace(/```circuit-set[\s\S]*?```/g, '').trim();
+  }
+  function renderMathIn(elm){
+    if (window.renderMathInElement){
+      try {
+        window.renderMathInElement(elm, {
+          delimiters: [
+            {left:'$$', right:'$$', display:true},
+            {left:'$', right:'$', display:false}
+          ],
+          throwOnError:false
+        });
+      } catch(e){ /* malformed math in a partial/streamed reply — leave as text */ }
+    }
+  }
+
+  function addMessageBubble(role){
+    const div = document.createElement('div');
+    div.className = `tutor-msg ${role}`;
+    tutorMessages.appendChild(div);
+    tutorMessages.scrollTop = tutorMessages.scrollHeight;
+    return div;
+  }
+
+  function clampToRange(key, v){
+    const {min,max} = RANGE[key];
+    return Math.min(Math.max(v, min), max);
+  }
+
+  function showDemoChip(bubble){
+    if (!bubble) return;
+    const chip = document.createElement('div');
+    chip.className = 'tutor-demo-chip';
+    chip.innerHTML = `▶ Circuit updated to demonstrate this. <button type="button">↺ Reset my values</button>`;
+    chip.querySelector('button').addEventListener('click', ()=>{
+      if (!tutorDemoSnapshot) return;
+      const snap = tutorDemoSnapshot; tutorDemoSnapshot = null;
+      if (snap.mode !== state.mode) triggerWipe(snap.mode);
+      controlApply.R(snap.R, true);
+      controlApply.L(snap.L_mH, true);
+      controlApply.C(snap.C_uF, true);
+      controlApply.f(snap.f_Hz, true);
+      chip.remove();
+    });
+    bubble.appendChild(chip);
+  }
+
+  function applyTutorDemo(action, bubble){
+    if (!tutorDemoSnapshot){
+      tutorDemoSnapshot = { mode: state.mode, R: state.R, L_mH: state.L_mH, C_uF: state.C_uF, f_Hz: state.f_Hz };
+    }
+    const targetMode = action.mode === 'AC' ? 'ac' : (action.mode === 'DC' ? 'transient' : state.mode);
+    if (targetMode !== state.mode) triggerWipe(targetMode);
+
+    const from = { R: state.R, L_mH: state.L_mH, C_uF: state.C_uF, f_Hz: state.f_Hz };
+    const to = {
+      R: clampToRange('R', action.R_ohms ?? from.R),
+      L_mH: clampToRange('L', action.L_mH ?? from.L_mH),
+      C_uF: clampToRange('C', action.C_uF ?? from.C_uF),
+      f_Hz: clampToRange('f', action.f_Hz ?? from.f_Hz)
+    };
+
+    const dur = 900, t0 = performance.now();
+    function tick(now){
+      const p = Math.min(1, (now-t0)/dur);
+      const e = p<0.5 ? 2*p*p : 1-Math.pow(-2*p+2,2)/2;
+      controlApply.R(from.R + (to.R-from.R)*e, true);
+      controlApply.L(from.L_mH + (to.L_mH-from.L_mH)*e, true);
+      controlApply.C(from.C_uF + (to.C_uF-from.C_uF)*e, true);
+      if (targetMode === 'ac') controlApply.f(from.f_Hz + (to.f_Hz-from.f_Hz)*e, true);
+      if (p<1) requestAnimationFrame(tick); else showDemoChip(bubble);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  async function sendTutorMessage(text){
+    text = text.trim();
+    if (!text) return;
+    tutorInput.value = '';
+    const userBubble = addMessageBubble('user');
+    userBubble.textContent = text;
+
+    const assistantBubble = addMessageBubble('assistant');
+    assistantBubble.innerHTML = '<span class="tutor-typing">thinking…</span>';
+
+    let raw = '';
+    try {
+      const res = await fetch(TUTOR_ENDPOINT, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          message: text,
+          history: tutorHistory,
+          circuit_state: getCircuitStateJSON()
+        })
+      });
+      const blocked = res.headers.get('X-Tutor-Blocked') === 'true';
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      while (true){
+        const {done, value} = await reader.read();
+        if (done) break;
+        raw += decoder.decode(value, {stream:true});
+        assistantBubble.innerHTML = renderMarkdownLite(displayText(raw)) || '<span class="tutor-typing">thinking…</span>';
+        tutorMessages.scrollTop = tutorMessages.scrollHeight;
+      }
+      renderMathIn(assistantBubble);
+
+      if (!blocked){
+        tutorHistory.push({role:'user', content:text});
+        tutorHistory.push({role:'assistant', content: displayText(raw)});
+        const m = raw.match(/<<CIRCUIT_ACTION>>([\s\S]*?)<<END>>/);
+        if (m){
+          try { applyTutorDemo(JSON.parse(m[1]), assistantBubble); }
+          catch(e){ /* malformed action from the server — ignore, text reply already shown */ }
+        }
+      }
+    } catch(err){
+      assistantBubble.innerHTML = renderMarkdownLite(
+        'Sorry — I could not reach the tutor backend. Is it running? See tutor-backend/README.md.'
+      );
+    }
+  }
+
+  tutorForm.addEventListener('submit', e=>{
+    e.preventDefault();
+    sendTutorMessage(tutorInput.value);
+  });
+  tutorChips.addEventListener('click', e=>{
+    const btn = e.target.closest('.tutor-chip');
+    if (!btn) return;
+    openTutor();
+    sendTutorMessage(btn.textContent);
+  });
 
   // ---------- boot ----------
   refitAll();
