@@ -4,7 +4,7 @@
 
 Built for a Computer Science IA exploring the connection between linear algebra and electrical engineering. One HTML file, zero build step, real math solved live in the browser on every slider movement.
 
-🔗 **Live circuit:** [`main.html`](main.html) — open it directly in any browser, no server required.
+🔗 **Live circuit:** [`index.html`](index.html) — open it directly in any browser, no server required.
 🤖 **Jarvis (optional):** a small local backend that adds an AI tutor drawer — see [`tutor-backend/`](tutor-backend/).
 
 ---
@@ -114,7 +114,7 @@ Replies stream token-by-token and render Markdown; any LaTeX-ish math Jarvis wri
 | AI | [Groq](https://groq.com) API (`groq` Python SDK), `openai/gpt-oss-120b` |
 | Config | `python-dotenv` |
 
-No build step, no framework, no bundler — `main.html` runs by itself in any modern browser.
+No build step, no framework, no bundler — `index.html` runs by itself in any modern browser.
 
 ---
 
@@ -122,7 +122,7 @@ No build step, no framework, no bundler — `main.html` runs by itself in any mo
 
 ### Just the simulator
 
-Open [`main.html`](main.html) directly in a browser. That's it — every visualization, all the math, and the sliders work with no backend at all.
+Open [`index.html`](index.html) directly in a browser. That's it — every visualization, all the math, and the sliders work with no backend at all.
 
 ### With Jarvis
 
@@ -135,14 +135,14 @@ cp .env.example .env
 python3 app.py
 ```
 
-The backend listens on `http://localhost:5001`; `main.html`'s "Ask Jarvis" button already points there. See [`tutor-backend/README.md`](tutor-backend/README.md) for details on the API contract and the safety pipeline.
+The backend listens on `http://localhost:5001`; `index.html`'s "Ask Jarvis" button already points there. See [`tutor-backend/README.md`](tutor-backend/README.md) for details on the API contract and the safety pipeline.
 
 ---
 
 ## Project structure
 
 ```
-main.html               the entire simulator — markup, styles, and all simulation/render logic
+index.html               the entire simulator — markup, styles, and all simulation/render logic
 tutor-backend/
   app.py                Flask app, the /api/tutor/chat streaming endpoint
   agents.py             Groq client wrapper (lazy client, streaming completion)
