@@ -470,20 +470,20 @@
   /* ---------- AI Circuit Tutor ---------- */
   .tutor-fab{
     position:fixed;
-    right:22px; bottom:22px;
+    left:22px; bottom:22px;
     z-index:40;
     display:flex; align-items:center; gap:8px;
-    padding:11px 18px 11px 14px;
+    padding:13px 20px 13px 16px;
     border-radius:999px;
-    border:1px solid var(--divider);
-    background:linear-gradient(160deg, var(--bezel-1), var(--bezel-2));
-    color:var(--panel-text);
-    font:600 13px 'IBM Plex Sans', sans-serif;
-    box-shadow:0 10px 28px rgba(0,0,0,.35), inset 0 1px 0 var(--bezel-edge);
+    border:2px solid var(--accent-strong);
+    background:linear-gradient(160deg, var(--accent), var(--accent-strong));
+    color:#1a1200;
+    font:700 14px 'IBM Plex Sans', sans-serif;
+    box-shadow:0 10px 28px rgba(0,0,0,.4), 0 0 24px 4px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 1px 0 rgba(255,255,255,.5);
     cursor:pointer;
   }
-  .tutor-fab svg{ width:18px; height:18px; color:var(--accent-strong); flex:none; }
-  .tutor-fab:hover{ filter:brightness(1.08); }
+  .tutor-fab svg{ width:19px; height:19px; color:#1a1200; flex:none; }
+  .tutor-fab:hover{ filter:brightness(1.1); transform:scale(1.03); }
   .tutor-fab:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
   .tutor-fab[hidden]{ display:none; }
 
@@ -1554,7 +1554,7 @@
   window.addEventListener('resize', ()=>{ refitAll(); });
 
   // ---------- AI Circuit Tutor ----------
-  const TUTOR_ENDPOINT = 'http://localhost:5001/api/tutor/chat';
+  const TUTOR_ENDPOINT = 'https://convertor-kd4k.onrender.com/api/tutor/chat';
   const ACTION_MARKER_START = '<<CIRCUIT_ACTION>>', ACTION_MARKER_END = '<<END>>';
 
   const tutorFab = el('tutorFab'), tutorDrawer = el('tutorDrawer'), tutorBackdrop = el('tutorBackdrop'),
