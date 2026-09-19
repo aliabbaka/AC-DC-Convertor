@@ -23,6 +23,11 @@ def health():
     return {"ok": True}
 
 
+@app.route("/health")
+def health_check():
+    return "ok", 200
+
+
 @app.post("/api/tutor/chat")
 def chat():
     body = request.get_json(force=True, silent=True) or {}
