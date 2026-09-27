@@ -43,9 +43,18 @@ def chat():
 
     def generate():
         full_text = ""
-        for delta in stream_tutor_reply(system_prompt, history, message):
-            full_text += delta
-            yield delta
+        try:
+            for delta in stream_tutor_reply(system_prompt, history, message):
+                full_text += delta
+                yield delta
+        except Exception:
+            # An error here happens mid-stream, after headers (and CORS) are
+            # already committed — raising would surface as an opaque
+            # "failed to fetch" in the browser instead of a readable message.
+            app.logger.exception("tutor chat failed")
+            if not full_text:
+                yield "Sorry — Jarvis hit an error talking to the model. Check the backend logs (likely a missing/invalid GROQ_API_KEY)."
+            return
 
         action, issues = verify_agent_output(full_text)
         if action:
